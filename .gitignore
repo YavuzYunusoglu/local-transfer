@@ -1,0 +1,14 @@
+# Build output
+artifacts/
+**/bin/
+**/obj/
+
+# IDE and user state
+.vs/
+.vscode/
+*.user
+*.suo
+
+# Operating system files
+Thumbs.db
+.DS_Store

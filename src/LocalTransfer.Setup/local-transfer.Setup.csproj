@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>..\..\assets\local-transfer.ico</ApplicationIcon>
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+    <AssemblyName>local-transfer-Setup</AssemblyName>
+    <RootNamespace>LocalTransfer.Setup</RootNamespace>
+    <Version>1.2.1</Version>
+    <AssemblyTitle>local-transfer Setup</AssemblyTitle>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\artifacts\publish\local-transfer.exe" LogicalName="Payload.local-transfer.exe" />
+    <EmbeddedResource Include="..\..\installer\Uninstall-local-transfer.ps1" LogicalName="Payload.Uninstall-local-transfer.ps1" />
+    <EmbeddedResource Include="..\..\THIRD-PARTY-NOTICES.txt" LogicalName="Payload.THIRD-PARTY-NOTICES.txt" />
+  </ItemGroup>
+</Project>
