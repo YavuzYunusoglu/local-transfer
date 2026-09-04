@@ -39,7 +39,7 @@ internal sealed class MainForm : Form
     private readonly Label _outgoingLabel = new();
     private readonly Button _clearOutgoingButton;
     private readonly ThemeToggleButton _themeButton = new();
-    private readonly ComboBox _languageSelector = new();
+    private readonly FlatComboBox _languageSelector = new();
     private readonly Button _copyButton;
     private readonly Button _refreshButton;
     private LocalTransferServer? _server;
@@ -536,6 +536,7 @@ internal sealed class MainForm : Form
     {
         _changingLanguage = true;
         _languageSelector.DropDownStyle = ComboBoxStyle.DropDownList;
+        _languageSelector.FlatStyle = FlatStyle.Flat;
         _languageSelector.DrawMode = DrawMode.OwnerDrawFixed;
         _languageSelector.ItemHeight = 28;
         _languageSelector.Width = 154;
@@ -844,9 +845,7 @@ internal sealed class MainForm : Form
         ApplyThemeToChildren(this, dark);
         _themeButton.DarkMode = dark;
         _themeButton.AccessibleName = T(dark ? "theme.toLight" : "theme.toDark");
-        _languageSelector.BackColor = dark ? DarkCardColor : CardColor;
-        _languageSelector.ForeColor = dark ? DarkTextColor : TextColor;
-        _languageSelector.Invalidate();
+        _languageSelector.DarkMode = dark;
         SetStatus(_statusKey, _statusKind, _statusArguments);
         UpdateTitleBarTheme();
         Invalidate(true);
@@ -1236,6 +1235,81 @@ internal sealed class MainForm : Form
                 var end = new PointF(center.X + (float)Math.Cos(angle) * 12, center.Y + (float)Math.Sin(angle) * 12);
                 e.Graphics.DrawLine(pen, start, end);
             }
+        }
+    }
+
+    private sealed class FlatComboBox : ComboBox
+    {
+        private const int WindowPaintMessage = 0x000F;
+        private bool _darkMode;
+
+        public FlatComboBox()
+        {
+            FlatStyle = FlatStyle.Flat;
+            SetStyle(ControlStyles.OptimizedDoubleBuffer, true);
+        }
+
+        [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
+        public bool DarkMode
+        {
+            get => _darkMode;
+            set
+            {
+                _darkMode = value;
+                BackColor = value ? DarkCardColor : CardColor;
+                ForeColor = value ? DarkTextColor : TextColor;
+                Invalidate();
+            }
+        }
+
+        protected override void WndProc(ref Message message)
+        {
+            base.WndProc(ref message);
+            if (message.Msg == WindowPaintMessage && IsHandleCreated && Width > 0 && Height > 0)
+                DrawFlatChrome();
+        }
+
+        protected override void OnGotFocus(EventArgs e)
+        {
+            base.OnGotFocus(e);
+            Invalidate();
+        }
+
+        protected override void OnLostFocus(EventArgs e)
+        {
+            base.OnLostFocus(e);
+            Invalidate();
+        }
+
+        private void DrawFlatChrome()
+        {
+            using var graphics = CreateGraphics();
+            graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+
+            var background = _darkMode ? DarkCardColor : CardColor;
+            var border = Focused
+                ? (_darkMode ? DarkPrimaryColor : PrimaryColor)
+                : (_darkMode ? DarkBorderColor : BorderColor);
+            var arrow = _darkMode ? DarkMutedColor : MutedColor;
+            var buttonWidth = Math.Max(24, SystemInformation.VerticalScrollBarWidth + 5);
+            var buttonBounds = new Rectangle(Math.Max(1, Width - buttonWidth - 1), 1, buttonWidth, Math.Max(1, Height - 2));
+
+            using var backgroundBrush = new SolidBrush(background);
+            using var borderPen = new Pen(border);
+            using var arrowPen = new Pen(arrow, 1.7F)
+            {
+                StartCap = System.Drawing.Drawing2D.LineCap.Round,
+                EndCap = System.Drawing.Drawing2D.LineCap.Round
+            };
+
+            graphics.FillRectangle(backgroundBrush, buttonBounds);
+            graphics.DrawLine(borderPen, buttonBounds.Left, buttonBounds.Top, buttonBounds.Left, buttonBounds.Bottom);
+            graphics.DrawRectangle(borderPen, 0, 0, Width - 1, Height - 1);
+
+            var centerX = buttonBounds.Left + buttonBounds.Width / 2F;
+            var centerY = buttonBounds.Top + buttonBounds.Height / 2F;
+            graphics.DrawLine(arrowPen, centerX - 4F, centerY - 2F, centerX, centerY + 2F);
+            graphics.DrawLine(arrowPen, centerX, centerY + 2F, centerX + 4F, centerY - 2F);
         }
     }
 

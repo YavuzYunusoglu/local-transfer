@@ -310,7 +310,7 @@ internal sealed class InstallerForm : Form
             ?? throw new InvalidOperationException("The uninstall registration could not be created.");
         var uninstallScript = Path.Combine(installDirectory, "Uninstall-local-transfer.ps1");
         key.SetValue("DisplayName", "local-transfer");
-        key.SetValue("DisplayVersion", "1.2.1");
+        key.SetValue("DisplayVersion", "1.2.2");
         key.SetValue("Publisher", "local-transfer");
         key.SetValue("InstallLocation", installDirectory);
         key.SetValue("DisplayIcon", appPath);
