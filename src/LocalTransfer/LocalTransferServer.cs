@@ -16,9 +16,13 @@ namespace LocalTransfer;
 internal sealed class LocalTransferServer : IAsyncDisposable
 {
     private const long MaximumFileSize = 10L * 1024 * 1024 * 1024;
+    private const int MaximumTextLength = 100_000;
+    private const int MaximumTextBytes = MaximumTextLength * 4;
     private readonly object _stateLock = new();
     private string _uploadFolder;
     private IReadOnlyList<OutgoingFile> _outgoingFiles = [];
+    private string _outgoingText = string.Empty;
+    private long _outgoingTextVersion;
     private WebApplication? _application;
     private string _pageTemplate = string.Empty;
 
@@ -32,6 +36,7 @@ internal sealed class LocalTransferServer : IAsyncDisposable
 
     public event Action<TransferRecord>? TransferCompleted;
     public event Action<string>? DeviceConnected;
+    public event Action<string>? TextReceived;
 
     public int Port { get; private set; }
     public string Token { get; private set; }
@@ -47,6 +52,15 @@ internal sealed class LocalTransferServer : IAsyncDisposable
     public IReadOnlyList<OutgoingFile> OutgoingFiles
     {
         get { lock (_stateLock) return _outgoingFiles.ToArray(); }
+    }
+
+    public OutgoingText OutgoingText
+    {
+        get
+        {
+            lock (_stateLock)
+                return new OutgoingText(_outgoingText, _outgoingTextVersion);
+        }
     }
 
     public string BuildUrl(IPAddress address) =>
@@ -84,6 +98,18 @@ internal sealed class LocalTransferServer : IAsyncDisposable
     public void ClearOutgoingFiles()
     {
         lock (_stateLock) _outgoingFiles = [];
+    }
+
+    public void SetOutgoingText(string text)
+    {
+        if (text.Length > MaximumTextLength)
+            throw new ArgumentOutOfRangeException(nameof(text), $"Text cannot exceed {MaximumTextLength:N0} characters.");
+
+        lock (_stateLock)
+        {
+            _outgoingText = text;
+            _outgoingTextVersion++;
+        }
     }
 
     public async Task StartAsync(CancellationToken cancellationToken = default)
@@ -161,6 +187,15 @@ internal sealed class LocalTransferServer : IAsyncDisposable
             return Results.Json(new { files });
         });
 
+        app.MapGet("/api/text", (HttpContext context) =>
+        {
+            if (!HasValidToken(context.Request))
+                return Results.Unauthorized();
+
+            var outgoingText = OutgoingText;
+            return Results.Json(new { text = outgoingText.Text, version = outgoingText.Version });
+        });
+
         app.MapGet("/api/download/{id}", (HttpContext context, string id) =>
         {
             if (!HasValidToken(context.Request))
@@ -179,6 +214,7 @@ internal sealed class LocalTransferServer : IAsyncDisposable
         });
 
         app.MapPost("/api/upload", (Delegate)UploadAsync);
+        app.MapPost("/api/text", (Delegate)ReceiveTextAsync);
 
         try
         {
@@ -261,6 +297,48 @@ internal sealed class LocalTransferServer : IAsyncDisposable
         {
             TryDelete(temporaryPath);
             return Results.Json(new { error = "An unexpected transfer error occurred." }, statusCode: 500);
+        }
+    }
+
+    private async Task<IResult> ReceiveTextAsync(HttpContext context)
+    {
+        if (!HasValidToken(context.Request))
+            return Results.Unauthorized();
+        if (context.Request.ContentLength is > MaximumTextBytes)
+            return Results.Json(new { error = "The text exceeds the 100,000 character limit." }, statusCode: 413);
+
+        try
+        {
+            await using var content = new MemoryStream();
+            var buffer = new byte[8192];
+            var total = 0;
+            while (true)
+            {
+                var read = await context.Request.Body.ReadAsync(buffer, context.RequestAborted);
+                if (read == 0)
+                    break;
+                total += read;
+                if (total > MaximumTextBytes)
+                    return Results.Json(new { error = "The text exceeds the 100,000 character limit." }, statusCode: 413);
+                await content.WriteAsync(buffer.AsMemory(0, read), context.RequestAborted);
+            }
+
+            var text = new UTF8Encoding(false, true).GetString(content.ToArray());
+            if (string.IsNullOrWhiteSpace(text))
+                return Results.BadRequest(new { error = "Text cannot be empty." });
+            if (text.Length > MaximumTextLength)
+                return Results.Json(new { error = "The text exceeds the 100,000 character limit." }, statusCode: 413);
+
+            TextReceived?.Invoke(text);
+            return Results.Json(new { ok = true, length = text.Length });
+        }
+        catch (DecoderFallbackException)
+        {
+            return Results.BadRequest(new { error = "The text must use UTF-8 encoding." });
+        }
+        catch (OperationCanceledException)
+        {
+            return Results.Json(new { error = "The text transfer was cancelled." }, statusCode: 499);
         }
     }
 

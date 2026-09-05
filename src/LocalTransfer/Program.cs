@@ -47,6 +47,7 @@ internal static class HeadlessHost
         var samplePath = Path.Combine(folder, "computer-sample.pdf");
         await File.WriteAllTextAsync(samplePath, "local-transfer interface test");
         server.SetOutgoingFiles([samplePath]);
+        server.SetOutgoingText("Text shared from the computer for interface testing.");
         await server.StartAsync();
         var url = $"http://127.0.0.1:{server.Port}/?token={Uri.EscapeDataString(server.Token)}";
         Console.WriteLine($"LOCAL_TRANSFER_URL={url}");
@@ -109,6 +110,27 @@ internal static class SelfTest
             var downloadedPayload = await client.GetByteArrayAsync(downloadUrl);
             if (!outgoingPayload.SequenceEqual(downloadedPayload))
                 throw new InvalidOperationException("The computer-to-phone download could not be validated.");
+
+            var receivedText = string.Empty;
+            server.TextReceived += text => receivedText = text;
+            const string computerText = "Hello from computer — 你好";
+            server.SetOutgoingText(computerText);
+            var outgoingTextUrl = $"http://127.0.0.1:{server.Port}/api/text?token={Uri.EscapeDataString(server.Token)}";
+            var outgoingTextJson = await client.GetStringAsync(outgoingTextUrl);
+            using var outgoingTextDocument = System.Text.Json.JsonDocument.Parse(outgoingTextJson);
+            if (outgoingTextDocument.RootElement.GetProperty("text").GetString() != computerText)
+                throw new InvalidOperationException("The computer-to-phone text could not be validated.");
+
+            const string phoneText = "Hello from phone — merhaba";
+            using (var textContent = new StringContent(phoneText, System.Text.Encoding.UTF8, "text/plain"))
+            using (var textResponse = await client.PostAsync(outgoingTextUrl, textContent))
+                textResponse.EnsureSuccessStatusCode();
+            if (!string.Equals(receivedText, phoneText, StringComparison.Ordinal))
+                throw new InvalidOperationException("The phone-to-computer text could not be validated.");
+
+            using var deniedText = await client.GetAsync($"http://127.0.0.1:{server.Port}/api/text?token=invalid");
+            if (deniedText.StatusCode != System.Net.HttpStatusCode.Unauthorized)
+                throw new InvalidOperationException("An invalid text-transfer token was not rejected.");
 
             var customFolder = Path.Combine(testFolder, "custom-folder");
             server.SetUploadFolder(customFolder);

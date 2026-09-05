@@ -10,7 +10,7 @@
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
     <AssemblyName>local-transfer</AssemblyName>
     <RootNamespace>LocalTransfer</RootNamespace>
-    <Version>1.2.2</Version>
+    <Version>1.3.0</Version>
     <AssemblyTitle>local-transfer</AssemblyTitle>
     <AssemblyDescription>Offline local file transfer between iPhone and Windows</AssemblyDescription>
     <InvariantGlobalization>false</InvariantGlobalization>

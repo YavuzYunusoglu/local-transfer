@@ -6,6 +6,7 @@ local-transfer is a fully local, two-way file transfer application for iPhone Sa
 
 - Send photos, videos, and files from iPhone to Windows through Safari.
 - Share files from Windows back to iPhone for download.
+- Send and copy plain text in either direction without creating a file.
 - Scan a temporary QR code instead of typing an address.
 - Choose any folder for incoming files.
 - Switch between light and dark themes.
@@ -24,9 +25,10 @@ local-transfer automatically starts with the Windows display language when suppo
 2. When setup finishes, scan the QR code in the local-transfer window with the iPhone Camera app.
 3. To send files to the computer, choose **Photos and videos** or **Choose file** in Safari.
 4. To send files to the phone, select **Choose files** in the desktop application. The files appear under **From your computer** in Safari.
-5. Incoming files are saved to `Downloads\local-transfer` by default. Use **Change folder** to choose another location.
+5. Use **Text transfer** to send written text in either direction and copy it on the receiving device.
+6. Incoming files are saved to `Downloads\local-transfer` by default. Use **Change folder** to choose another location.
 
-The theme, interface language, and incoming-file folder are saved for future sessions. A new access token is generated whenever the application starts. Existing files are never overwritten; duplicate names receive an automatic `(1)`, `(2)`, and so on. The per-file limit is 10 GB.
+The theme, interface language, and incoming-file folder are saved for future sessions. Shared text is held only in memory for the current application session. A new access token is generated whenever the application starts. Existing files are never overwritten; duplicate names receive an automatic `(1)`, `(2)`, and so on. The per-file limit is 10 GB and the per-message text limit is 100,000 characters.
 
 ## Privacy and network use
 

@@ -159,6 +159,49 @@
     .summary.show { display: block; }
     .summary.success { background: var(--success-bg); color: var(--success); }
     .summary.error { background: var(--danger-bg); color: var(--danger); }
+    .text-card { margin-top: 16px; }
+    .text-card h2 { margin: 0 0 4px; font-size: 1.12rem; letter-spacing: -.015em; }
+    .text-card > p { margin: 0 0 15px; color: var(--muted); font-size: .86rem; }
+    .text-label { display: block; margin-bottom: 7px; font-size: .86rem; font-weight: 700; }
+    .text-input {
+      display: block;
+      width: 100%;
+      min-height: 112px;
+      resize: vertical;
+      padding: 12px 13px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      outline: none;
+      background: var(--surface-soft);
+      color: var(--text);
+      font: inherit;
+      font-size: 16px;
+      line-height: 1.45;
+    }
+    .text-input:focus { border-color: var(--focus); box-shadow: 0 0 0 3px color-mix(in srgb, var(--focus) 24%, transparent); }
+    .text-actions { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 12px; margin-top: 10px; }
+    .text-status { min-width: 0; color: var(--muted); font-size: .8rem; overflow-wrap: anywhere; }
+    .text-button {
+      min-height: 44px;
+      flex: 0 0 auto;
+      padding: 0 16px;
+      border: 1px solid var(--primary);
+      border-radius: 12px;
+      background: var(--primary);
+      color: var(--on-primary);
+      font: inherit;
+      font-size: .86rem;
+      font-weight: 700;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      transition: background-color 160ms ease, opacity 160ms ease;
+    }
+    .text-button:active { background: var(--primary-pressed); }
+    .text-button:disabled { cursor: default; opacity: .55; }
+    .computer-text { margin-top: 16px; padding: 14px; border-radius: 14px; background: var(--surface-soft); }
+    .computer-text-label { display: block; margin-bottom: 6px; color: var(--muted); font-size: .78rem; font-weight: 700; }
+    .computer-text-content { max-height: 240px; margin: 0; overflow: auto; color: var(--text); white-space: pre-wrap; overflow-wrap: anywhere; font-size: .9rem; }
+    .computer-text .text-button { width: 100%; margin-top: 12px; background: var(--surface); color: var(--primary); }
     .downloads-card { margin-top: 16px; }
     .downloads-card h2 { margin: 0 0 4px; font-size: 1.12rem; letter-spacing: -.015em; }
     .downloads-card > p { margin: 0 0 15px; color: var(--muted); font-size: .86rem; }
@@ -173,6 +216,7 @@
     button.retry { min-height: 44px; margin-top: 10px; padding: 0 15px; border: 0; border-radius: 10px; background: var(--primary); color: var(--on-primary); font: inherit; font-size: .85rem; font-weight: 700; cursor: pointer; }
     button.retry:active { background: var(--primary-pressed); }
     button:focus-visible, label:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
+    textarea:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
     @media (max-width: 370px) {
       body { padding-left: 14px; padding-right: 14px; }
       .connected { padding-inline: 8px; }
@@ -237,6 +281,22 @@
       <div id="summary" class="summary" role="status" aria-live="polite"></div>
     </section>
 
+    <section class="card text-card" aria-labelledby="textHeading">
+      <h2 id="textHeading" data-i18n="web.textTitle">Text transfer</h2>
+      <p data-i18n="web.textDesc">Send text directly between this phone and the computer.</p>
+      <label class="text-label" for="textInput" data-i18n="web.textLabel">Send to computer</label>
+      <textarea id="textInput" class="text-input" maxlength="100000" data-i18n-placeholder="web.textPlaceholder" placeholder="Write or paste text"></textarea>
+      <div class="text-actions">
+        <span id="textStatus" class="text-status" role="status" aria-live="polite"></span>
+        <button id="sendTextButton" class="text-button" type="button" data-i18n="web.sendText">Send text</button>
+      </div>
+      <div id="computerTextCard" class="computer-text" hidden>
+        <span class="computer-text-label" data-i18n="web.fromComputer">From computer</span>
+        <p id="computerText" class="computer-text-content"></p>
+        <button id="copyComputerTextButton" class="text-button" type="button" data-i18n="web.copyText">Copy text</button>
+      </div>
+    </section>
+
     <section id="downloadsCard" class="card downloads-card" aria-labelledby="downloadsHeading" hidden>
       <h2 id="downloadsHeading" data-i18n="web.downloads">From your computer</h2>
       <p data-i18n="web.downloadsDesc">Download the files selected for you on the computer.</p>
@@ -259,8 +319,16 @@
       const fileInput = document.getElementById('fileInput');
       const downloadsCard = document.getElementById('downloadsCard');
       const downloadList = document.getElementById('downloadList');
+      const textInput = document.getElementById('textInput');
+      const textStatus = document.getElementById('textStatus');
+      const sendTextButton = document.getElementById('sendTextButton');
+      const computerTextCard = document.getElementById('computerTextCard');
+      const computerText = document.getElementById('computerText');
+      const copyComputerTextButton = document.getElementById('copyComputerTextButton');
       const languageSelect = document.getElementById('languageSelect');
       let outgoingSignature = '';
+      let sharedTextVersion = -1;
+      let textStatusKey = '';
       let languageCode = 'en';
 
       function resolveLanguage(value) {
@@ -292,6 +360,8 @@
         document.getElementById('computerName').textContent = t('web.computerConnected', computer);
         languageSelect.value = languageCode;
         languageSelect.setAttribute('aria-label', t('language.label'));
+        textInput.placeholder = t('web.textPlaceholder');
+        if (textStatusKey) textStatus.textContent = t(textStatusKey);
         downloadList.querySelectorAll('.download-row').forEach(row => {
           const name = row.querySelector('.file-name')?.textContent || '';
           row.querySelector('.download-button')?.setAttribute('aria-label', t('web.downloadAria', name));
@@ -439,11 +509,85 @@
         } catch (_) { /* The connection badge and upload action provide actionable feedback. */ }
       }
 
+      async function sendText() {
+        if (!textInput.value.trim()) {
+          textStatusKey = 'web.textEmpty';
+          textStatus.textContent = t(textStatusKey);
+          textInput.focus();
+          return;
+        }
+
+        sendTextButton.disabled = true;
+        textStatusKey = 'web.textSending';
+        textStatus.textContent = t(textStatusKey);
+        try {
+          const response = await fetch('/api/text?token=' + encodeURIComponent(token), {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+            body: textInput.value
+          });
+          if (!response.ok) throw new Error('text transfer failed');
+          textStatusKey = 'web.textSent';
+        } catch (_) {
+          textStatusKey = 'web.textFailed';
+        } finally {
+          textStatus.textContent = t(textStatusKey);
+          sendTextButton.disabled = false;
+        }
+      }
+
+      async function copyText(value) {
+        try {
+          if (navigator.clipboard?.writeText) {
+            await navigator.clipboard.writeText(value);
+            return true;
+          }
+        } catch (_) { /* Use the selection fallback on local HTTP pages. */ }
+
+        const helper = document.createElement('textarea');
+        helper.value = value;
+        helper.setAttribute('readonly', '');
+        helper.style.position = 'fixed';
+        helper.style.opacity = '0';
+        document.body.appendChild(helper);
+        helper.select();
+        helper.setSelectionRange(0, helper.value.length);
+        const copied = document.execCommand('copy');
+        helper.remove();
+        return copied;
+      }
+
+      async function refreshSharedText() {
+        try {
+          const response = await fetch('/api/text?token=' + encodeURIComponent(token), { cache: 'no-store' });
+          if (!response.ok) return;
+          const data = await response.json();
+          if (data.version === sharedTextVersion) return;
+          sharedTextVersion = data.version;
+          const value = typeof data.text === 'string' ? data.text : '';
+          computerText.textContent = value;
+          computerTextCard.hidden = value.length === 0;
+        } catch (_) { /* Keep the last received text visible while reconnecting. */ }
+      }
+
       photoInput.addEventListener('change', () => { processFiles(photoInput.files); photoInput.value = ''; });
       fileInput.addEventListener('change', () => { processFiles(fileInput.files); fileInput.value = ''; });
-      document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshOutgoing(); });
+      sendTextButton.addEventListener('click', sendText);
+      copyComputerTextButton.addEventListener('click', async () => {
+        const copied = await copyText(computerText.textContent || '');
+        textStatusKey = copied ? 'web.textCopied' : 'web.textFailed';
+        textStatus.textContent = t(textStatusKey);
+      });
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) {
+          refreshOutgoing();
+          refreshSharedText();
+        }
+      });
       refreshOutgoing();
+      refreshSharedText();
       window.setInterval(refreshOutgoing, 2000);
+      window.setInterval(refreshSharedText, 2000);
     })();
   </script>
 </body>

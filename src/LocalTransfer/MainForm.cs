@@ -38,6 +38,10 @@ internal sealed class MainForm : Form
     private readonly Label _folderLabel = new();
     private readonly Label _outgoingLabel = new();
     private readonly Button _clearOutgoingButton;
+    private readonly TextBox _textToPhoneBox = new();
+    private readonly TextBox _receivedTextBox = new();
+    private readonly Button _sendTextButton;
+    private readonly Button _copyReceivedTextButton;
     private readonly ThemeToggleButton _themeButton = new();
     private readonly FlatComboBox _languageSelector = new();
     private readonly Button _copyButton;
@@ -80,6 +84,14 @@ internal sealed class MainForm : Form
         _clearOutgoingButton = CreateButton("Clear list");
         _clearOutgoingButton.Enabled = false;
         _clearOutgoingButton.Click += (_, _) => ClearOutgoingFiles();
+
+        _sendTextButton = CreateButton("Share text", primary: true);
+        _sendTextButton.Enabled = false;
+        _sendTextButton.Click += (_, _) => ShareTextWithPhone();
+
+        _copyReceivedTextButton = CreateButton("Copy received text");
+        _copyReceivedTextButton.Enabled = false;
+        _copyReceivedTextButton.Click += (_, _) => CopyReceivedText();
 
         Controls.Add(BuildLayout());
         ConfigureLanguageSelector();
@@ -279,10 +291,100 @@ internal sealed class MainForm : Form
         right.RowStyles.Add(new RowStyle(SizeType.Percent, 31));
         right.RowStyles.Add(new RowStyle(SizeType.Percent, 25));
         right.RowStyles.Add(new RowStyle(SizeType.Percent, 44));
-        right.Controls.Add(BuildStepsCard(), 0, 0);
+        right.Controls.Add(BuildTextCard(), 0, 0);
         right.Controls.Add(BuildOutgoingCard(), 0, 1);
         right.Controls.Add(BuildHistoryCard(), 0, 2);
         return right;
+    }
+
+    private Control BuildTextCard()
+    {
+        var card = new CardPanel
+        {
+            Dock = DockStyle.Fill,
+            Margin = new Padding(0, 0, 0, 14),
+            Padding = new Padding(22, 14, 22, 14),
+            BackColor = CardColor
+        };
+        var layout = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 1,
+            RowCount = 2,
+            Margin = Padding.Empty
+        };
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 32));
+        layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+        layout.Controls.Add(new Label
+        {
+            Text = "Text transfer",
+            AutoSize = true,
+            Font = DisplayFont(13.5F, FontStyle.Bold),
+            ForeColor = TextColor
+        }, 0, 0);
+
+        var columns = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 2,
+            RowCount = 1,
+            Margin = Padding.Empty
+        };
+        columns.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
+        columns.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
+
+        var sendPanel = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 3, ColumnCount = 1, Margin = new Padding(0, 0, 8, 0) };
+        sendPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 24));
+        sendPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+        sendPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 40));
+        sendPanel.Controls.Add(new Label
+        {
+            Text = "Send to phone",
+            AutoSize = true,
+            ForeColor = MutedColor,
+            Font = UiFont(8.5F, FontStyle.Bold)
+        }, 0, 0);
+        ConfigureTextBox(_textToPhoneBox, readOnly: false);
+        _textToPhoneBox.TextChanged += (_, _) => UpdateTextButtons();
+        _sendTextButton.Margin = new Padding(0, 6, 0, 0);
+        sendPanel.Controls.Add(_textToPhoneBox, 0, 1);
+        sendPanel.Controls.Add(_sendTextButton, 0, 2);
+
+        var receivePanel = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 3, ColumnCount = 1, Margin = new Padding(8, 0, 0, 0) };
+        receivePanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 24));
+        receivePanel.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+        receivePanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 40));
+        receivePanel.Controls.Add(new Label
+        {
+            Text = "Received from phone",
+            AutoSize = true,
+            ForeColor = MutedColor,
+            Font = UiFont(8.5F, FontStyle.Bold)
+        }, 0, 0);
+        ConfigureTextBox(_receivedTextBox, readOnly: true);
+        _copyReceivedTextButton.Margin = new Padding(0, 6, 0, 0);
+        receivePanel.Controls.Add(_receivedTextBox, 0, 1);
+        receivePanel.Controls.Add(_copyReceivedTextButton, 0, 2);
+
+        columns.Controls.Add(sendPanel, 0, 0);
+        columns.Controls.Add(receivePanel, 1, 0);
+        layout.Controls.Add(columns, 0, 1);
+        card.Controls.Add(layout);
+        return card;
+    }
+
+    private static void ConfigureTextBox(TextBox textBox, bool readOnly)
+    {
+        textBox.Dock = DockStyle.Fill;
+        textBox.Multiline = true;
+        textBox.AcceptsReturn = true;
+        textBox.ScrollBars = ScrollBars.Vertical;
+        textBox.BorderStyle = BorderStyle.FixedSingle;
+        textBox.BackColor = Color.FromArgb(241, 245, 249);
+        textBox.ForeColor = TextColor;
+        textBox.Font = UiFont(9F);
+        textBox.MaxLength = 100_000;
+        textBox.ReadOnly = readOnly;
     }
 
     private Control BuildOutgoingCard()
@@ -600,6 +702,10 @@ internal sealed class MainForm : Form
         _urlLabel.AccessibleName = T("access.url");
         _folderLabel.AccessibleName = T("access.folder");
         _historyList.AccessibleName = T("access.history");
+        _textToPhoneBox.PlaceholderText = T("text.writePlaceholder");
+        _receivedTextBox.PlaceholderText = T("text.receivedEmpty");
+        _textToPhoneBox.AccessibleName = T("access.textToPhone");
+        _receivedTextBox.AccessibleName = T("access.receivedText");
         _languageSelector.AccessibleName = T("language.label");
         _themeButton.AccessibleName = T(_darkMode ? "theme.toLight" : "theme.toDark");
         _languageSelector.Invalidate();
@@ -613,7 +719,8 @@ internal sealed class MainForm : Form
         foreach (Control control in parent.Controls)
         {
             if (control != _statusLabel && control != _deviceLabel && control != _outgoingLabel &&
-                control != _urlLabel && control != _folderLabel && control != _languageSelector)
+                control != _urlLabel && control != _folderLabel && control != _languageSelector &&
+                control != _textToPhoneBox && control != _receivedTextBox)
             {
                 if (!_localizedControls.TryGetValue(control, out var key) && Localizer.TryFindEnglishKey(control.Text, out key))
                     _localizedControls[control] = key;
@@ -645,6 +752,7 @@ internal sealed class MainForm : Form
             _server = new LocalTransferServer(_uploadFolder);
             _server.TransferCompleted += OnTransferCompleted;
             _server.DeviceConnected += OnDeviceConnected;
+            _server.TextReceived += OnTextReceived;
             await _server.StartAsync();
             UpdateConnectionDisplay();
         }
@@ -674,6 +782,7 @@ internal sealed class MainForm : Form
             SetStatus("status.waitingNetwork", StatusKind.Warning);
             _copyButton.Enabled = false;
             _refreshButton.Enabled = true;
+            UpdateTextButtons();
             return;
         }
 
@@ -683,6 +792,7 @@ internal sealed class MainForm : Form
         SetStatus("status.ready", StatusKind.Success);
         _copyButton.Enabled = true;
         _refreshButton.Enabled = true;
+        UpdateTextButtons();
     }
 
     private void RefreshConnection()
@@ -743,6 +853,43 @@ internal sealed class MainForm : Form
             };
             timer.Start();
         });
+    }
+
+    private void OnTextReceived(string text)
+    {
+        if (IsDisposed) return;
+        BeginInvoke(() =>
+        {
+            _receivedTextBox.Text = text;
+            UpdateTextButtons();
+            SetStatus("status.textReceived", StatusKind.Success);
+        });
+    }
+
+    private void ShareTextWithPhone()
+    {
+        if (_server is null || string.IsNullOrWhiteSpace(_textToPhoneBox.Text))
+        {
+            SetStatus("status.textEmpty", StatusKind.Warning);
+            return;
+        }
+
+        _server.SetOutgoingText(_textToPhoneBox.Text);
+        SetStatus("status.textReady", StatusKind.Success);
+    }
+
+    private void CopyReceivedText()
+    {
+        if (string.IsNullOrEmpty(_receivedTextBox.Text))
+            return;
+        Clipboard.SetText(_receivedTextBox.Text);
+        SetStatus("status.textCopied", StatusKind.Success);
+    }
+
+    private void UpdateTextButtons()
+    {
+        _sendTextButton.Enabled = _server?.IsRunning == true && !string.IsNullOrWhiteSpace(_textToPhoneBox.Text);
+        _copyReceivedTextButton.Enabled = !string.IsNullOrEmpty(_receivedTextBox.Text);
     }
 
     private void OpenUploadFolder()
